@@ -1,0 +1,4 @@
+interface:
+  display_name: "WSL2 Claude 与 Codex 网络隐私"
+  short_description: "检查双工具实际出口、断线保护、Windows 调用和会话内容"
+  default_prompt: "用 $wsl-agent-privacy 检查这台 WSL2 上 Claude 和 Codex 的网络与工具隐私，先给出本机可验证的结果。"

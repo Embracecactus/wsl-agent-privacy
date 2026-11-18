@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+*.zip
+*.log
+*.jsonl
+*.sqlite*
+*.key
+*.pem
+.env
+.env.*
+config.json
+clash-verge.yaml
+profiles.yaml
+ChromeProfile/
+browser-controller.json
