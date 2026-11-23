@@ -84,31 +84,42 @@ def load_config() -> dict:
     return cfg
 
 
-def shell_entries() -> None:
-    """Activate by prepending this directory in the user's shell; leave native links intact."""
+def shell_entries(claude_mode: str | None = None) -> None:
+    """Preserve an existing selection unless the user explicitly switches modes."""
     private_dir(BIN_DIR)
-    entries = {}
-    for tool in TOOLS:
-        path = BIN_DIR / tool
-        command = shlex.join([PYTHON, "-I", str(HERE / "guard.py"), "run", tool])
-        content = '#!/bin/sh\nexec ' + command + ' "$@"\n'
-        entries[path] = content
-        if os.path.lexists(path):
-            if path.is_symlink() or not path.is_file() or path.read_text() != content:
-                raise RuntimeError(f"existing entry differs: {path}")
+    def wrapper(action, tool):
+        cmd = shlex.join([PYTHON, "-I", str(HERE / "guard.py"), action, tool])
+        return '#!/bin/sh\nexec ' + cmd + ' "$@"\n'
+
+    native = wrapper("native", "claude")
+    strict = wrapper("run", "claude")
+    entries = {"claude-local": native, "claude-bwrap": strict, "codex": wrapper("run", "codex"),
+               "claude": strict if claude_mode == "bwrap" else native}
     directory = os.open(BIN_DIR, os.O_NOFOLLOW | os.O_DIRECTORY)
     try:
         fcntl.flock(directory, fcntl.LOCK_EX)
-        for path, content in entries.items():
+        changes = {}
+        for name, content in entries.items():
+            path = BIN_DIR / name
+            prior = None
             if os.path.lexists(path):
-                if path.is_symlink() or not path.is_file() or path.read_text() != content:
-                    raise RuntimeError("an existing shell entry changed; leaving it in place")
-                continue
-            with tempfile.NamedTemporaryFile(mode="w", dir=BIN_DIR) as tmp:
-                tmp.write(content)
-                tmp.flush()
-                os.fchmod(tmp.fileno(), 0o700)
-                os.link(tmp.name, path)
+                allowed = (native, strict) if name == "claude" else (content,)
+                if path.is_symlink() or not path.is_file() or (prior := path.read_text()) not in allowed:
+                    raise RuntimeError(f"existing entry differs: {path}")
+                if prior == content or (name == "claude" and claude_mode is None):
+                    continue
+            changes[path] = (prior, content)
+        with tempfile.TemporaryDirectory(dir=BIN_DIR) as temp:
+            for path, (prior, content) in changes.items():
+                staged = P(temp) / path.name
+                staged.write_text(content)
+                staged.chmod(0o700)
+                if prior is None:
+                    os.link(staged, path)
+                else:
+                    if path.is_symlink() or not path.is_file() or path.read_text() != prior:
+                        raise RuntimeError(f"entry changed during installation: {path}")
+                    staged.replace(path)
     finally:
         os.close(directory)
     print('export PATH=' + shlex.quote(str(BIN_DIR)) + ':"$PATH"')
@@ -125,6 +136,33 @@ def tool_binary(cfg: dict, tool: str) -> tuple[P, P]:
         if f.read(4) != b"\x7fELF":
             raise RuntimeError("select the Linux native ELF, not a shell, Node or Windows wrapper")
     return entry, real
+
+
+def proxy_environment(port: int) -> dict[str, str]:
+    proxy = f"http://127.0.0.1:{port}"
+    env = {"NODE_USE_ENV_PROXY": "1", "NO_PROXY": "localhost,127.0.0.1,::1",
+           "no_proxy": "localhost,127.0.0.1,::1"}
+    for key in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "WS_PROXY", "WSS_PROXY"):
+        env[key] = env[key.lower()] = proxy
+    return env
+
+
+def run_native_claude(args: list[str]) -> int:
+    if args in (["--self-test"], ["update"], ["upgrade"]):
+        return run_tool("claude", args)
+    cfg = load_config()
+    _, real = tool_binary(cfg, "claude")
+    route.check(cfg, "claude")
+    if args == ["--guard-check"]:
+        print("claude: native entry fixed-node probe passed")
+        return 0
+    overrides = proxy_environment(cfg["ports"]["claude"])
+    # WSL passes these variables to new Win32 children only when WSLENV lists them.
+    forwarded = [key for key in overrides if key.isupper()]
+    retained = [item for item in os.environ.get("WSLENV", "").split(":")
+                if item and item.split("/", 1)[0].upper() not in forwarded]
+    env = {**os.environ, **overrides, "WSLENV": ":".join([*retained, *(key + "/w" for key in forwarded)])}
+    os.execve(real, [str(real), *args], env)
 
 
 def mount(cmd: list[str], source: P, destination: P, *, write: bool = False) -> None:
@@ -231,11 +269,7 @@ def prepare_namespace(cfg: dict, tool: str, args: list[str], runtime: P, relay: 
     env = {"HOME": str(HOME_DIR), "USER": "agent", "LOGNAME": "agent", "SHELL": "/bin/bash",
            "PATH": str(native_entry.parent) + ":/usr/local/bin:/usr/bin:/bin:/usr/sbin",
            "LANG": locale, "LC_ALL": locale, "TZ": zone_name, "TERM": os.environ.get("TERM", "xterm"),
-           "NODE_USE_ENV_PROXY": "1", "NO_PROXY": "localhost,127.0.0.1,::1",
-           "no_proxy": "localhost,127.0.0.1,::1", "XDG_RUNTIME_DIR": f"/run/user/{uid}"}
-    proxy = f"http://127.0.0.1:{port}"
-    for name in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "WS_PROXY", "WSS_PROXY"):
-        env[name] = env[name.lower()] = proxy
+           "XDG_RUNTIME_DIR": f"/run/user/{uid}", **proxy_environment(port)}
     if cfg.get("wayland", False) and not is_update:
         wayland = os.environ.get("WAYLAND_DISPLAY", "wayland-0")
         if not re.fullmatch(r"wayland-[0-9]+", wayland):
@@ -355,17 +389,20 @@ def main(args: list[str]) -> int:
         raise RuntimeError("use /usr/bin/python3 -I to run the guard")
     if args == ["init"]:
         create_config()
-    elif args == ["entries"]:
+    elif args in (["entries"], ["entries", "--claude-native"], ["entries", "--claude-bwrap"]):
         load_config()
-        shell_entries()
+        shell_entries(args[1].removeprefix("--claude-") if len(args) == 2 else None)
     elif len(args) == 2 and args[0] in {"check", "checked-port"} and args[1] in TOOLS:
         config = load_config()
         route.check(config, args[1])
         print(config["ports"][args[1]] if args[0] == "checked-port" else f"{args[1]}: fixed-node probe passed")
     elif len(args) >= 2 and args[0] == "run" and args[1] in TOOLS:
         return run_tool(args[1], args[2:])
+    elif args[:2] == ["native", "claude"]:
+        return run_native_claude(args[2:])
     else:
-        print("Usage: guard.py init | entries | check TOOL | run TOOL [--self-test | CLI_ARGS...]", file=sys.stderr)
+        print("Usage: guard.py init | entries [--claude-native | --claude-bwrap] | check TOOL | "
+              "native claude [ARGS...] | run TOOL [--self-test | ARGS...]", file=sys.stderr)
         return 2
     return 0
 

@@ -10,8 +10,11 @@
 | 11-16 至 11-17 | 给可能忽略代理的 Linux 工具提供可验证的断线阻断。 | 引入 bwrap 网络命名空间，沙盒内仅有回环，公网访问经宿主中继和固定节点。保留浏览器及 USB ADB 的限定接口。通过代理连通、直接 IP/DNS 阻断和退出清理检查，另行修复原生更新后的入口切换。 |
 | 11-18 | 交互终端、PATH 和旧入口的保护范围不同，宿主 HOME 的授权也需要收紧。 | 统一隔离启动，使用私有 HOME、修复版 bubblewrap、固定监听与节点双重核对，以及进程内时区检查。宿主 CLI、DNS 和专用 Chrome 分项验收。此日建立首个独立 GitHub 分发快照。 |
 | 11-19 至 11-22 | 日常工作需要历史会话、工具链、素材和本机设备。 | 现场版陆续验证只读共享会话、选择性登录、Windows 串口查询及 CUDA。Windows Sandbox PowerShell 在 11-21 的回执中仍未通过两端客户端验收。现场扩展分别记录，分发包采用独立配置。 |
+| 11-23 | 日常任务频繁遇到目录和工具限制，需要恢复本地使用体验并保留强隔离。 | 普通 `claude` 和 `claude-local` 使用宿主原生 CLI，继续做固定节点预检。`claude-bwrap` 保留硬隔离。现场在官方 Claude Code 2.1.330 进程中核对宿主网络、挂载、PID 命名空间、工作目录、历史目录及 Windows 程序可见性。交互式 Bash、PATH 和两个显式入口均成功返回版本。bwrap 的代理、直接 IP 和 DNS 阻断自检通过。本次未发送模型消息。 |
 
 ### 可以取回的源码
 
 - **引入 bwrap 前的宿主入口**保存了原生启动器和 Windows 代理桥接。归档这两个文件时，逐字节核对了早期实验目录和宿主迁移前的源文件。它们代表引入 bwrap 前最后留存的实现，现场监听、账号配置和浏览器资料另行保管。[原生启动器](reference/pre-bwrap/claude_guard.py) · [Windows 桥接](reference/pre-bwrap/windows_bridge.ps1)
 - **首个已发布的 bwrap 分发版**可用 `git show fa3f00a:README.md` 阅读说明，用 `git show fa3f00a:wsl-agent-privacy/scripts/guard.py` 提取当时的入口。各项验证覆盖的范围见[措施与验收记录](PROTECTION.md)。
+- **本地版本标签**中，`claude-pre-bwrap-archive` 标记早期源码归档提交，`claude-bwrap-2026-11-18` 对应原分发提交，`claude-native-2026-11-23` 对应双入口版。可用 `git diff claude-bwrap-2026-11-18..claude-native-2026-11-23` 比较分发代码。切换日常模式只需使用安装说明中的入口选择命令。[切换与验收](wsl-agent-privacy/references/setup.md)
+- **现场加固版本**还保留了 11-18 至 11-22 的八个按内容摘要命名的运行包。11-23 逐包重算，八个摘要都与目录名相符，当前 bwrap 包含 12 个与现场源码一致的文件。包索引和宿主回执在本地项目维护。

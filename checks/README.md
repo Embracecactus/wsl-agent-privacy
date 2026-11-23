@@ -4,11 +4,12 @@
 
 ~~~bash
 /usr/bin/python3 -I checks/test_guards.py
+/usr/bin/python3 -I checks/test_claude_modes.py
 /usr/bin/python3 -I checks/verify_dns.py network/mihomo.example.yaml claude CLAUDE_FIXED_NODE
 /usr/bin/python3 -I checks/verify_dns.py network/mihomo.example.yaml codex CODEX_FIXED_NODE
 ~~~
 
-第一项检查固定配置、同链路不同入站的拒绝、缓存起点和真实网络命名空间内的客户端启动。临时 CLI 清除 TZ 后检查系统回退值。三种错误配置分别验证拒绝启动。DNS 命令可对实际加载的生成配置做同样的只读核对，输出仅有覆盖数量。
+第一项检查固定配置、同链路不同入站的拒绝、缓存起点和真实网络命名空间内的客户端启动。临时 CLI 清除 TZ 后检查系统回退值。三种错误配置分别验证拒绝启动。第二项在临时 HOME 中检查原生与隔离入口切换、保留已有选择、拒绝覆盖用户文件、原生程序的环境与参数，以及代理预检失败时停止启动。DNS 命令可对实际加载的生成配置做同样的只读核对，输出仅有覆盖数量。
 
 已有 Linux Mihomo 可执行文件时，以下命令在一次性网络空间只启用 loopback，自建 DNS、固定和普通代理入口及测试对端。实验包含 DNS 阳性对照与节点关闭时的新域名请求。传入程序的绝对路径。
 

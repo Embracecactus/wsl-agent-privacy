@@ -1,6 +1,15 @@
 # WSL2 中 Claude Code 的网络与工具隐私
 
-这套防护让 Claude Code 和它的 Linux 子进程只能通过经核验的本地代理访问网络。代理失联时，新连接会失败。普通入口仍叫 `claude`，Codex 可选。专用 Windows Chrome 使用独立数据目录，项目文件和选定的 Windows 工具有各自的权限边界。
+日常输入 `claude`，在本机 WSL 的工作目录和 HOME 中使用官方 Claude Code。启动器先核对专用代理和固定节点，检查通过才启动。需要隔离时输入 `claude-bwrap`，保留私有文件视图、Linux 网络命名空间和中继。专用 Windows Chrome 使用独立数据目录。
+
+| 命令 | 工作环境 | 网络范围 |
+| --- | --- | --- |
+| `claude` 或 `claude-local` | 本机用户的项目、历史和工具 | 启动时实测固定节点。遵守代理的程序使用该出口，其他本机进程仍可能直连。 |
+| `claude-bwrap` | 按隔离规则挂载项目和获准的接口 | 命名空间内的 Linux 进程经中继出网，代理失联时新连接失败。 |
+
+旧安装的默认模式可显式切换。各阶段的来源、可取回的旧源码和分发版本见[开发日志](CHANGELOG.md)。
+
+已有早期宿主部署、并保留原 `runtime/install_runtime.py` 及其配套源码时，可从本仓库执行 `python3 -IB integrations/install_claude_modes.py /path/to/runtime native`。末尾改成 `bwrap` 即可切回。该适配器复用已有宿主代理检查和签名升级机制。下面的分发版安装步骤适用于新机器。
 
 首次排查、采用的措施和实验结果集中在[完整措施与验收记录](PROTECTION.md)。本机可以验证进程的出口、文件视图和工具返回。账号状态以服务商通知为准。[Anthropic 账号通知与申诉](https://support.claude.com/en/articles/8241253-safeguards-warnings-and-appeals) · [服务支持地区](https://www.anthropic.com/legal/supported-regions)
 
@@ -13,7 +22,7 @@ python3 -I wsl-agent-privacy/install.py --target claude
 python3 -I ~/.claude/skills/wsl-agent-privacy/scripts/audit.py host
 ~~~
 
-安装 Skill 后，在 Claude 中输入 `/wsl-agent-privacy`。启用网络隔离是单独一步，需要使用者自己的 Mihomo 专用监听、已加载的生成配置和原生 CLI，步骤含验收和撤销。[WSL 安装](wsl-agent-privacy/references/setup.md) · [Mihomo 局部合并样例](network/mihomo.example.yaml)
+安装 Skill 后，在 Claude 中输入 `/wsl-agent-privacy`。配置好自己的 Mihomo 专用监听、已加载的生成配置和原生 CLI 后，用 `guard.py entries --claude-native` 生成日常入口。首次启用及旧版更新步骤见[WSL 安装](wsl-agent-privacy/references/setup.md)和[Mihomo 局部合并样例](network/mihomo.example.yaml)。
 
 | 需要完成的工作 | 可用材料 |
 | --- | --- |

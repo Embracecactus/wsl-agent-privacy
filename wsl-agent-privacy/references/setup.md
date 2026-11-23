@@ -12,7 +12,11 @@ cd ~/.agents/skills/wsl-agent-privacy
 
 仅装 Claude 时，最后两步使用 ~/.claude/skills/wsl-agent-privacy。新会话中可用 Claude 的 /wsl-agent-privacy 或 Codex 的 $wsl-agent-privacy。安装器只放置 Skill。已有可用防护时，从已有入口验证即可，无需叠加另一套代理。两个端的发现位置见 [Claude Skills](https://code.claude.com/docs/en/skills) 和 [Codex Skills](https://developers.openai.com/codex/skills/)。
 
-## 在新机器启用网络保护
+若已安装 11 月 18 日的分发 Skill，先从保留的旧版目录运行 `python3 -I install.py --target claude --remove`，再从新版目录安装。旧版安装器只移除逐文件匹配的程序目录。配置、会话和项目保存在各自的位置。若提示本地文件有修改，保留该副本，先核对修改。
+
+## 在新机器启用启动入口
+
+原生模式使用系统 Python、Mihomo 和官方原生 CLI，可以直接使用当前项目、主目录和本机工具。下面的 bubblewrap、网络命名空间和 GPG 条件适用于隔离模式及经隔离入口执行的手动更新。
 
 适用环境是 WSL2 的 Ubuntu/Debian、Python 3.10 以上、修复后的非 setuid bubblewrap（上游 0.12.0 及以上）、iproute2、系统 Python 的 PyYAML、CA 证书，以及原生 Linux ELF 版 Claude Code 或 Codex。Claude 原生升级还使用 gpg、gpgv。先用 command -v 和各自的版本命令核实。网络命名空间和当前内核的终端隔离检查必须可用。读取生成的 YAML 配置依赖 PyYAML（Debian/Ubuntu 包名 python3-yaml）。依赖由目标机器的系统包管理器和厂商提供，分发包内没有代理客户端或 CLI 二进制。
 
@@ -50,18 +54,27 @@ Windows Clash 的这个监听必须能从 WSL 通过 127.0.0.1 到达。镜像�
 
 当控制器提供入站名时，可增加 inbounds，分别填 claude-private 和 codex-private，期望字段缺失或不符会拒绝。timezone、locale 只作用于专用进程，初始值为 Etc/UTC 和 C.UTF-8。选择本地已安装且符合业务实际的值即可。默认关闭 Wayland 与 USB。
 
-**3. 从专用入口验收。** 按实际安装的 CLI 分别执行。自检只连官方端点做匿名 TLS 握手。每次启动核对节点类型、探测连接的本地源端口、目标和精确代理链。运行中每条新的 relay 连接都需要最近 15 秒内的成功凭证，过期时先复核；已建立的连接保持原有生命周期。
+**3. 选择日常模式。** 在 Skill 目录运行以下命令。第一条核对 Claude 的固定出口，第二条输出用于当前 shell 的 PATH 设置。首次安装默认选择原生。已有入口无参数重跑 `entries` 会保留上次选择。显式使用 `--claude-native` 或 `--claude-bwrap` 可来回切换。同一目录中的 `claude-local` 和 `claude-bwrap` 始终按各自的模式启动。
+
+~~~bash
+/usr/bin/python3 -I scripts/guard.py check claude
+/usr/bin/python3 -I scripts/guard.py entries --claude-native
+~~~
+
+原生模式的预检是一次匿名 TLS 握手。启动后向进程提供专用代理变量，用户设置、工具及 Windows 程序仍能自行决定如何联网。可用 `claude-local --guard-check` 复核代理，用 `claude-local --version` 验证官方程序。
+
+**4. 验收隔离入口。** 按实际安装的 CLI 分别执行。在这个模式下每条新的中继连接都需要最近 15 秒内的成功凭证，过期时先复核。
 
 ~~~bash
 /usr/bin/python3 -I scripts/guard.py run claude --self-test
 /usr/bin/python3 -I scripts/guard.py run codex --self-test
-/usr/bin/python3 -I scripts/guard.py entries
 ~~~
 
-最后一条输出一行 export PATH。在希望启用的 WSL 终端执行该行，再运行 hash -r、type -t claude 和 type -t codex，并检查 type -P 的路径。已有同名函数或别名会优先于 PATH；先判断它是否已提供保护。首次验收也可直接执行下列命令。全部通过后才按需将 export 行加入个人 shell 配置，或保持仅当前终端生效。
+在希望启用的 WSL 终端执行第三步输出的 export 行，再运行 hash -r、type -t claude 和 type -t codex，并检查 type -P 的路径。已有同名函数或别名会优先于 PATH。首次验收也可直接执行下列命令。
 
 ~~~bash
 ~/.local/share/wsl-agent-privacy/bin/claude --version
+~/.local/share/wsl-agent-privacy/bin/claude-bwrap --self-test
 ~/.local/share/wsl-agent-privacy/bin/codex --version
 ~~~
 
@@ -69,7 +82,7 @@ Windows Clash 的这个监听必须能从 WSL 通过 127.0.0.1 到达。镜像�
 
 ## 数据、升级和撤销
 
-- 新部署使用各自持久的私有 HOME，位于 ~/.local/state/wsl-agent-privacy/ 下的 claude 或 codex 目录。首次可能需要登录，旧工具的账号、历史和配置仍可从原入口使用。相同业务项目以原路径可写，Skill 会只读映射给相应 CLI。用户明确同意后，可把经过检查的业务摘录放进所选项目。未授权时无需复制凭据或整份历史。
+- 原生模式沿用本机原有 HOME、历史和账号设置。分发版的隔离模式使用各自持久的私有 HOME，位于 ~/.local/state/wsl-agent-privacy/ 下的 claude 或 codex 目录。首次使用隔离模式可能需要登录。相同业务项目以原路径可写，Skill 会只读映射给相应 CLI。
 - 默认共享当前 Linux 家目录下的业务项目。其他磁盘可在 project_roots 列出具体项目的绝对路径。不要选择整个用户目录、整块 Windows 盘、包含控制器或启动器的目录、带宿主控制套接字的项目，或会自动执行不受信任产物的宿主工作流。沙盒外消费共享文件的进程有自己的权限和出口。在家目录启动时进入专用 HOME。
 - WSLg 需要时显式设置 wayland 为 true，仅映射单个 Wayland socket。USB ADB 的窄接口、专用 Chrome 和其它 Windows 工具见 [Windows 能力](windows.md)。登录流程可把厂商显示的地址在自己的专用浏览器打开并按提示操作。OAuth URL 和用户码只留在本机。
 - 以后照常输入 claude、codex。Claude 原生安装的 claude update 或 claude upgrade 使用临时入口，成功后再通过相同代理验证官方签名和文件 SHA-256，原子切换真实 Claude 链接。Codex 的官方 standalone 布局用 codex update，只有显式更新才获得对应包目录的写权限。包管理器安装和布局变化应使用对应的官方更新流程。两者都以重新从受保护入口运行 --version 为准。[Claude 安装与签名](https://code.claude.com/docs/en/setup#binary-integrity-and-code-signing) · [Codex CLI](https://developers.openai.com/codex/cli/reference/)
