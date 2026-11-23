@@ -1,0 +1,19 @@
+# Effective configuration example. Merge these entries into the active profile.
+# Replace CLAUDE_FIXED_NODE with the same concrete node as in the WSL guard.
+listeners:
+  - {name: claude-private, type: http, listen: 127.0.0.1, port: 17897, proxy: CLAUDE_FIXED_NODE}
+
+# Optional for other clients using the ordinary proxy or captured by TUN.
+# Put the four rules before existing broad matches, keeping the existing final MATCH.
+rules:
+  - DOMAIN-SUFFIX,anthropic.com,CLAUDE_FIXED_NODE
+  - DOMAIN-SUFFIX,claude.ai,CLAUDE_FIXED_NODE
+  - DOMAIN-SUFFIX,claude.com,CLAUDE_FIXED_NODE
+  - DOMAIN-SUFFIX,claudeusercontent.com,CLAUDE_FIXED_NODE
+dns:
+  nameserver-policy:
+    "+.anthropic.com": &claude_dns
+      - "https://1.1.1.1/dns-query#CLAUDE_FIXED_NODE&ecs=0.0.0.0/0&ecs-override=true"
+    "+.claude.ai": *claude_dns
+    "+.claude.com": *claude_dns
+    "+.claudeusercontent.com": *claude_dns

@@ -13,7 +13,7 @@ import threading
 import time
 import uuid
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "wsl-agent-privacy/scripts"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "claude-native/scripts"))
 from route import validate_match
 
 
@@ -40,7 +40,7 @@ class LocalDNS(socketserver.BaseRequestHandler):
 
 class LocalPeer(socketserver.BaseRequestHandler):
     def handle(self):
-        # Record only our synthetic address in the real outbound VLESS request.
+        # The same local fixture accepts either the raw marker or a VLESS request wrapping it.
         self.request.settimeout(4)
         header = bytearray()
         while b"route-probe!" not in header and len(header) < 4096:
@@ -49,7 +49,7 @@ class LocalPeer(socketserver.BaseRequestHandler):
                 return
             header.extend(chunk)
         self.server.requests.append(bytes(header))
-        self.request.sendall(b"\x00\x00ok")
+        self.request.sendall(b"ok" if header == b"route-probe!" else b"\x00\x00ok")
         try:
             self.request.recv(1)
         except TimeoutError:
@@ -66,19 +66,21 @@ def loopback_server(stack, server_class, handler):
     return server
 
 
-def get_json(controller, path):
+def get_json(controller, path, method="GET", data=None):
     port, secret = controller
     with closing(http.client.HTTPConnection("127.0.0.1", port, timeout=2)) as client:
-        client.request("GET", path, headers={"Authorization": "Bearer " + secret})
+        client.request(method, path, body=json.dumps(data) if data is not None else None,
+                       headers={"Authorization": "Bearer " + secret, "Content-Type": "application/json"})
         response = client.getresponse()
-        if response.status != 200:
+        if response.status not in (200, 204):
             raise RuntimeError("test core HTTP error")
-        return json.loads(response.read())
+        body = response.read()
+        return json.loads(body) if body else None
 
 
-def probe(port, host, controller):
+def probe(port, host, controller, target_port=443):
     with closing(http.client.HTTPConnection("127.0.0.1", port, timeout=3)) as tunnel:
-        tunnel.set_tunnel(host, 443)
+        tunnel.set_tunnel(host, target_port)
         tunnel.connect()
         tunnel.sock.sendall(b"route-probe!")
         with tunnel.sock.makefile("rb") as stream:
@@ -108,7 +110,8 @@ def run(core):
         listeners = [dict(name="fixed", type="http", listen="127.0.0.1", port=fixed, proxy="test-node"),
                      dict(name="ordinary", type="http", listen="127.0.0.1", port=ordinary)]
         config = {"external-controller": f"127.0.0.1:{api}", "secret": controller[1], "mode": "rule", "ipv6": False,
-                  "listeners": listeners, "dns": {"enable": True, "enhanced-mode": "fake-ip",
+                  "listeners": listeners, "hosts": {"api-check.test": "127.0.0.1"},
+                  "dns": {"enable": True, "enhanced-mode": "fake-ip",
                     "nameserver": [f"udp://127.0.0.1:{dns.server_address[1]}"]},
                   "proxies": [{"name": "test-node", "type": "vless", "server": "127.0.0.1",
                     "port": peer.server_address[1], "uuid": str(uuid.uuid4())}],
@@ -140,7 +143,7 @@ def run(core):
             raise RuntimeError("isolated core timed out")
         fixed_target = "previously-unknown.test"
         pinned = probe(fixed, fixed_target, controller)
-        unpinned = probe(ordinary, "api-check.test", controller)
+        unpinned = probe(ordinary, "api-check.test", controller, peer.server_address[1])
         def denied(port, host):
             try:
                 probe(port, host, controller)
@@ -149,6 +152,21 @@ def run(core):
             return False
         control = "ordinary-dns-control.test"
         rejected = denied(ordinary, control)
+        # GLOBAL deliberately points somewhere other than the dedicated listener's node.
+        get_json(controller, "/proxies/GLOBAL", "PUT", {"name": "DIRECT"})
+        modes = {}
+        for mode in ("global", "direct"):
+            get_json(controller, "/configs", "PATCH", {"mode": mode})
+            assert get_json(controller, "/configs")["mode"].lower() == mode
+            selected = probe(fixed, mode + "-fixed.test", controller)
+            modes[mode + "_dedicated_listener_pinned"] = pinned_connection([selected], "test-node", fixed)
+            plain_before = peer.requests.count(b"route-probe!")
+            direct = probe(ordinary, "api-check.test", controller, peer.server_address[1])
+            modes[mode + "_ordinary_direct"] = (
+                direct["chains"][0] == "DIRECT" and not direct["specialProxy"]
+                and peer.requests.count(b"route-probe!") == plain_before + 1
+            )
+        get_json(controller, "/configs", "PATCH", {"mode": "rule"})
         peer_stack.close()
         offline = "offline-unknown.test"
         offline_denied = denied(fixed, offline)
@@ -158,7 +176,7 @@ def run(core):
                   "offline_denied_without_local_dns": offline_denied and offline not in dns.names,
                   "chain_alone_cannot_distinguish": pinned["chains"] == unpinned["chains"] == ["test-node"],
                   "live_inbound_pin_distinguishes": pinned_connection([pinned], "test-node", fixed)
-                  and not pinned_connection([unpinned], "test-node", ordinary)}
+                  and not pinned_connection([unpinned], "test-node", ordinary), **modes}
         print(json.dumps({"version": version, "checks": result}, sort_keys=True))
         return all(result.values())
 

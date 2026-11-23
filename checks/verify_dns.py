@@ -8,8 +8,6 @@ import yaml
 
 SUFFIXES = {
     "claude": ("anthropic.com", "claude.ai", "claude.com", "claudeusercontent.com"),
-    "codex": ("auth.openai.com", "chatgpt.com", "openai.com",
-              "oaistatic.com", "oaiusercontent.com", "oaistatsig.com"),
 }
 
 

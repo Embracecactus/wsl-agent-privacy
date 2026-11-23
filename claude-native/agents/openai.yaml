@@ -1,0 +1,4 @@
+interface:
+  display_name: "WSL2 日常 Claude"
+  short_description: "配置原生 Claude 的专用代理、Windows 系统代理和 Clash TUN"
+  default_prompt: "用 $claude-native 核对原生 Claude 的有效入口、Clash 专用监听和固定节点。"

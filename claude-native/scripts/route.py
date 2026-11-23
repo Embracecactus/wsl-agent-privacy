@@ -1,4 +1,4 @@
-"""Fail-closed Mihomo route validation for WSL Claude Code and Codex launchers."""
+"""Fail-closed Mihomo route validation for the native WSL Claude launcher."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ import urllib.parse
 from typing import Any
 
 
-PROBES = {"claude": "api.anthropic.com", "codex": "chatgpt.com"}
+PROBES = {"claude": "api.anthropic.com"}
 PIPE_NAME = re.compile(r"^[A-Za-z0-9_.-]{1,128}$")
 NODE_NAME = re.compile(r"^[^\x00-\x1f\x7f]{1,256}$")
 ALLOWED_TYPES = {
