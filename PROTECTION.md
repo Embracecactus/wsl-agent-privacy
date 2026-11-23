@@ -1,5 +1,7 @@
 # 措施清单、验收和边界
 
+本页记录 2026-11-18 原分发版的措施和当时的命令名。现行隔离分支使用 `claude-bwrap`，安装以[当前说明](claude-bwrap/references/setup.md)为准。
+
 本记录从首次 WSL2 排查覆盖到固定出口、工具隔离、专用浏览器、更新兼容和时区启动检查。分发版使用占位节点、独立 HOME 和中性时区 UTC，接收者在自己机器上选择项目、程序和端口。时间均用 UTC 或仅列日期。官方资料核对日期为 2026-11-18。
 
 ## WSL、代理与 DNS
@@ -13,7 +15,7 @@
 | Windows、国内应用与其他网络 | 固定监听与服务后缀局部合并，普通应用保留原有路由。Clash 图标颜色、TUN 开关、rule/global、系统代理、QNX 枚举的网卡属于不同层。针对受影响的应用分别核对；游戏重启恢复本身不能归因于分流。VPS 的 IPv6 SSH 管理与客户端代理数据链路分别检查。 |
 | 故障定位 | 分开核对监听、CONNECT、TLS、服务状态、额度与账号通知。临时 TLS EOF 只在既有固定路径做有界重试。Unix peer 地址表示本地进程通信。SSH 修复只针对管理通道；Magpie 与 SSH 隧道是调研方案，未作为此部署的依赖。 |
 
-[分流实现](wsl-agent-privacy/scripts/route.py) · [DNS 样例](network/mihomo.example.yaml) · [本地核心对照实验](checks/check_mihomo_ingress.py) · [官方端点表](https://code.claude.com/docs/en/network-config) · [Mihomo DNS](https://wiki.metacubex.one/en/config/dns/)
+[分流实现](claude-bwrap/scripts/route.py) · [DNS 样例](claude-bwrap/network/mihomo.example.yaml) · [本地核心对照实验](checks/check_mihomo_ingress.py) · [官方端点表](https://code.claude.com/docs/en/network-config) · [Mihomo DNS](https://wiki.metacubex.one/en/config/dns/)
 
 早期兼容阶段还分别检查过大小写 HTTP/HTTPS/ALL_PROXY、NO_PROXY、WSL 向 Windows 子进程传递环境变量，以及 TUN/strict-route 的系统级兜底。工具可以忽略代理变量，最终采用命名空间与受控 broker 作为两端普通入口的强制边界。QNX 的用户态虚拟网络与该入口分别验收。
 
@@ -31,14 +33,14 @@
 | 剪映、配音等业务 | 能读写工程文件、能启动应用、能连云端配音是三件事。不识别代理变量的 WebSocket 客户端可使用本地 CONNECT 适配器，保留 TLS 校验，保护环境中遇代理中断就报错。离线回声测试不代表真实服务的登录、额度或配音成功。 |
 | 工具和附件里的时区 | 文档日程、Git 时间偏移、媒体标签、日志、截图或用户粘贴的文字，不受系统时区隔离自动改写。复核曾定位到读取项目文档返回时区文字。分发的会话检查器仅在本地统计已选文件的命中类别。未自动改写原始业务资料，也未将翻译设为前置条件。 |
 
-[WSL 入口](wsl-agent-privacy/scripts/guard.py) · [时区启动检查](wsl-agent-privacy/scripts/sandbox_entry.py) · [Windows 与 USB](wsl-agent-privacy/references/windows.md) · [现场文件授权参考](reference/private_home.py) · [登录浏览器授权参考](reference/browser_broker.py) · [配音适配器](integrations/wsl_tts_proxy.py)
+[WSL 入口](claude-bwrap/scripts/guard.py) · [时区启动检查](claude-bwrap/scripts/sandbox_entry.py) · [Windows 与 USB](claude-bwrap/references/windows.md) · [现场文件授权参考](reference/private_home.py) · [登录浏览器授权参考](reference/browser_broker.py) · [配音适配器](integrations/wsl_tts_proxy.py)
 
 ## 更新、权限与临时观察
 
-- 以普通入口复验原生版本。Claude 更新时临时授予版本目录写权限，校验官方签名与平台哈希，再原子切换入口。Codex 单独核对 standalone 版本和稳定路径。并发更新、模型切换、WSL apt 更新和 CLI 程序升级分别有不同的验证条件。[更新实现](wsl-agent-privacy/scripts/engine.py) · [Claude 官方安装](https://code.claude.com/docs/en/setup)
+- 以普通入口复验原生版本。Claude 更新时临时授予版本目录写权限，校验官方签名与平台哈希，再原子切换入口。Codex 单独核对 standalone 版本和稳定路径。并发更新、模型切换、WSL apt 更新和 CLI 程序升级分别有不同的验证条件。[更新实现](claude-bwrap/scripts/engine.py) · [Claude 官方安装](https://code.claude.com/docs/en/setup)
 - 使用根用户所有、非 setuid、不可由普通用户改写的已修复 bubblewrap。现场使用并列安装的 0.13.1，可审阅上游标签、签名与摘要核对脚本。仓库分发源码和构建方法。[依赖验证](checks/build-bubblewrap.sh) · [上游修复公告](https://github.com/containers/bubblewrap/security/advisories/GHSA-pxhw-h44j-8pfx)
-- 启动前复核 shell 别名、旧 guard、真正的 ELF 和 `--version`。退出时回收中继、线程与临时 socket，保留会话及客户端退出码。会话列表按项目筛选，恢复时先核对原目录和账号 HOME。Bash 规则中的宽泛通配符应按业务收窄。跳过客户端审批会增加工具权限，外层网络边界仍须独立验收。[运行故障](wsl-agent-privacy/references/operations.md) · [权限与会话](wsl-agent-privacy/references/sessions.md)
-- 临时检查只观察指定进程树，报告观测时段、可见范围和连接类别。本方案不安装后台监控服务。专用 Chrome、普通 Chrome、Windows 桌面客户端和 WSL CLI 生命周期独立；已退出的桌面 VM 不承担 WSL 网络隔离。[审计脚本](wsl-agent-privacy/scripts/audit.py)
+- 启动前复核 shell 别名、旧 guard、真正的 ELF 和 `--version`。退出时回收中继、线程与临时 socket，保留会话及客户端退出码。会话列表按项目筛选，恢复时先核对原目录和账号 HOME。Bash 规则中的宽泛通配符应按业务收窄。跳过客户端审批会增加工具权限，外层网络边界仍须独立验收。[运行故障](claude-bwrap/references/operations.md) · [权限与会话](claude-bwrap/references/sessions.md)
+- 临时检查只观察指定进程树，报告观测时段、可见范围和连接类别。本方案不安装后台监控服务。专用 Chrome、普通 Chrome、Windows 桌面客户端和 WSL CLI 生命周期独立；已退出的桌面 VM 不承担 WSL 网络隔离。[审计脚本](claude-bwrap/scripts/audit.py)
 - 分享 Git 仓库时核对待推送的完整历史。作者和提交者的日期都带时区偏移，工作树脱敏不会改写既有提交。独立的新仓库可使用已审查的文件快照、GitHub noreply 邮箱与 UTC 提交日期，推送前验证两组元数据。
 
 ## 证据层级

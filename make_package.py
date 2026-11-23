@@ -22,7 +22,7 @@ def build(source: Path, destination: Path) -> str:
                 path = source / name
                 if path != path.resolve(strict=True) or not path.is_relative_to(source) or not path.is_file():
                     raise ValueError("unsafe package member")
-                entry = zipfile.ZipInfo("wsl-agent-privacy/" + name, (1980, 1, 1, 0, 0, 0))
+                entry = zipfile.ZipInfo("claude-bwrap/" + name, (1980, 1, 1, 0, 0, 0))
                 entry.create_system = 3
                 entry.external_attr = (stat.S_IFREG | 0o644) << 16
                 archive.writestr(entry, path.read_bytes(), compress_type=zipfile.ZIP_DEFLATED)

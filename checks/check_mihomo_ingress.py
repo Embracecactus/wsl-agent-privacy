@@ -13,7 +13,7 @@ import threading
 import time
 import uuid
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "wsl-agent-privacy/scripts"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "claude-bwrap/scripts"))
 from route import validate_match
 
 

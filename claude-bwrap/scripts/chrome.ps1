@@ -9,7 +9,7 @@ $ProgressPreference = 'SilentlyContinue'
 $wslArgs = @()
 if ($Distribution) { $wslArgs = @('--distribution', $Distribution) }
 $probe = @'
-for guard in "$HOME/.claude/skills/wsl-agent-privacy/scripts/guard.py" "$HOME/.agents/skills/wsl-agent-privacy/scripts/guard.py"; do
+for guard in "$HOME/.claude/skills/claude-bwrap/scripts/guard.py" "$HOME/.agents/skills/claude-bwrap/scripts/guard.py"; do
     if [ -f "$guard" ]; then exec /usr/bin/python3 -I "$guard" checked-port claude; fi
 done
 exit 1

@@ -4,8 +4,8 @@
 
 ~~~bash
 /usr/bin/python3 -I checks/test_guards.py
-/usr/bin/python3 -I checks/verify_dns.py network/mihomo.example.yaml claude CLAUDE_FIXED_NODE
-/usr/bin/python3 -I checks/verify_dns.py network/mihomo.example.yaml codex CODEX_FIXED_NODE
+/usr/bin/python3 -I checks/verify_dns.py claude-bwrap/network/mihomo.example.yaml claude CLAUDE_FIXED_NODE
+/usr/bin/python3 -I checks/verify_dns.py claude-bwrap/network/mihomo.example.yaml codex CODEX_FIXED_NODE
 ~~~
 
 第一项检查固定配置、同链路不同入站的拒绝、缓存起点和真实网络命名空间内的客户端启动。临时 CLI 清除 TZ 后检查系统回退值。三种错误配置分别验证拒绝启动。DNS 命令可对实际加载的生成配置做同样的只读核对，输出仅有覆盖数量。
@@ -35,3 +35,9 @@ python3 integrations/test_tts_proxy_adapter.py
 ## 2026-11-18 UTC 分发验证
 
 便携入口的离线回归通过；Mihomo v1.19.33 在独立网络空间的 6 项对照、Linux Chromium 151 的 9 项浏览器检查都通过。两个 DNS 样例分别覆盖 4 和 6 个后缀，WebSocket 本地回声与代理失联检查通过。20 个 Skill 成员生成的两份 ZIP 逐字节一致，在空 HOME 安装到两端、重复安装和移除均成功。此处记录的是临时环境的结果；专用 Windows 快捷方式、登录和真实手机仍需目标机验收。
+
+## 2026-11-23 分支验收
+
+隔离版从独立分支安装到临时 HOME，使用实际 WSL2、Windows 控制器及固定节点执行 `claude-bwrap --self-test`。代理 TLS 成功，直接 IPv4、IPv6 和 UDP DNS 均无路由，模拟监听拒绝后仍无直连路由。真实命名空间的离线回归也通过。Windows 命名管道按运行实例填写；分发控制器现在按数值检查节点名长度。
+
+本分支的 21 个文件重复打包后逐字节一致。与日常版分别按两种顺序安装、调换 PATH 先后、分别移除，通过入口名和文件内容核对。隔离分支的命令目录只有 `claude-bwrap`。

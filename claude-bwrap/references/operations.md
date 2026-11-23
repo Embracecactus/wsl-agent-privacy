@@ -23,7 +23,7 @@ Peer address: uds 显示的是本地 Unix domain socket 地址，用于客户端
 
 ## 更新
 
-更新前后都检查实际路径和版本。原生 Claude 更新会在版本目录写入新二进制并切换启动链接。若 bwrap 中把链接只读，更新器可能报告成功却没有切换。更新专用流程可给更新器临时入口，随后在宿主侧验证签名 manifest、平台校验和及原子链接切换。安装步骤必须在普通 WSL 终端运行，隔离会话内的只读挂载会拒绝写入。Anthropic 的签名和原生安装细节见[官方说明](https://code.claude.com/docs/en/setup#binary-integrity-and-code-signing)。
+从本分支的入口执行 `claude-bwrap update`，升级前后都用 `claude-bwrap --version` 检查版本。原生 Claude 更新会在版本目录写入新二进制并切换启动链接。若 bwrap 中把链接只读，更新器可能报告成功却没有切换。更新专用流程可给更新器临时入口，随后在宿主侧验证签名 manifest、平台校验和及原子链接切换。安装步骤必须在普通 WSL 终端运行，隔离会话内的只读挂载会拒绝写入。Anthropic 的签名和原生安装细节见[官方说明](https://code.claude.com/docs/en/setup#binary-integrity-and-code-signing)。
 
 Codex 更新应从实际 CLI 的官方更新命令完成，重启后检查版本、启动入口和隔离自检。不要让升级过程自动恢复普通网络、共享 daemon 或未审核的系统级代理。
 

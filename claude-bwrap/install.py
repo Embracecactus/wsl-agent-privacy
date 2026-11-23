@@ -17,7 +17,7 @@ import tempfile
 from collections.abc import Iterator
 
 
-SKILL = "wsl-agent-privacy"
+SKILL = "claude-bwrap"
 ROOT = pathlib.Path(__file__).resolve().parent
 TARGETS = {
     "claude": pathlib.Path.home() / ".claude" / "skills" / SKILL,
@@ -29,7 +29,7 @@ DISTRIBUTED_FILES = (
     "scripts/controller.ps1", "scripts/engine.py",
     "scripts/guard.py", "scripts/probe.py", "scripts/proxy_relay.py", "scripts/route.py",
     "scripts/sandbox_entry.py", "scripts/usb.py",
-    "references/setup.md", "references/network.md", "references/windows.md",
+    "references/setup.md", "references/network.md", "network/mihomo.example.yaml", "references/windows.md",
     "references/sessions.md", "references/operations.md", "references/topics.md",
 )
 
@@ -186,7 +186,7 @@ def remove(targets: dict[str, pathlib.Path], files: dict[pathlib.PurePosixPath, 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Install the WSL agent privacy Skill without changing agent or proxy settings."
+        description="Install the claude-bwrap isolation Skill in a user Skill directory."
     )
     parser.add_argument("--target", choices=("both", "claude", "codex"))
     parser.add_argument("--remove", action="store_true", help="remove only an unmodified installed copy")

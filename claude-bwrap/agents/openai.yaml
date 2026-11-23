@@ -1,0 +1,4 @@
+interface:
+  display_name: "Claude 的 WSL2 隔离入口"
+  short_description: "核对 claude-bwrap 的固定代理、私有 HOME 和命名空间"
+  default_prompt: "用 $claude-bwrap 检查这个 WSL2 隔离入口的代理链及断线保护。"

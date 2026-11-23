@@ -54,7 +54,7 @@ try {
         exit 0
     }
     if ($request.action -eq 'proxy') {
-        if ([string]$request.node -match '[\x00-\x1f\x7f]' -or [string]$request.node.Length -gt 256) { exit 2 }
+        if ([string]$request.node -match '[\x00-\x1f\x7f]' -or ([string]$request.node).Length -gt 256) { exit 2 }
         $node = [Uri]::EscapeDataString([string]$request.node)
         $proxy = Invoke-Controller 'GET' ('/proxies/' + $node)
         @{type=$proxy.type} | ConvertTo-Json -Compress

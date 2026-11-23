@@ -1,30 +1,20 @@
-# WSL2 中 Claude Code 的网络与工具隐私
+# claude-bwrap · WSL2 隔离版
 
-这套防护让 Claude Code 和它的 Linux 子进程只能通过经核验的本地代理访问网络。代理失联时，新连接会失败。普通入口仍叫 `claude`，Codex 可选。专用 Windows Chrome 使用独立数据目录，项目文件和选定的 Windows 工具有各自的权限边界。
+从普通 WSL 终端运行 `claude-bwrap`，让官方 Claude Code 在私有 HOME 和独立网络命名空间中启动。隔离空间只有回环接口，Linux 子进程的外部连接经宿主中继和指定的 Mihomo 节点。这个分支只注册 `claude-bwrap`，可与日常版同时安装。[日常原生版](https://github.com/Embracecactus/wsl-agent-privacy/tree/main)
 
-首次排查、采用的措施和实验结果集中在[完整措施与验收记录](PROTECTION.md)。本机可以验证进程的出口、文件视图和工具返回。账号状态以服务商通知为准。[Anthropic 账号通知与申诉](https://support.claude.com/en/articles/8241253-safeguards-warnings-and-appeals) · [服务支持地区](https://www.anthropic.com/legal/supported-regions)
+## 使用
 
-## 从这里开始
+1. 在 WSL2 准备修复版 bubblewrap、iproute2、系统 Python、PyYAML 和原生 Claude CLI。在可读取的当前 Mihomo 配置中准备一个固定节点的回环 HTTP 监听。已有日常版的专用监听可复用。
+2. 从本分支安装 `claude-bwrap`，填写本机配置，启用独立 PATH 目录。[安装与撤销](claude-bwrap/references/setup.md) · [监听样例](claude-bwrap/network/mihomo.example.yaml)
+3. 运行 `claude-bwrap --self-test` 核对代理 TLS、直接 IPv4、IPv6 和 DNS。再从业务项目运行 `claude-bwrap --version` 和 `claude-bwrap`。
 
-在普通 WSL 终端进入本仓库，先安装 Claude 的只读审计 Skill。需要 Codex 时将 `--target claude` 换成 `--target both`。
+WSL 宿主的系统代理和 TUN 可按其他应用的需要设置。隔离进程依赖自己的网络命名空间和中继；专用监听失联或启动预检失败时，会限制相应连接或启动。宿主的浏览器、Windows 程序和外部服务各有自己的访问路径。
 
-~~~bash
-python3 -I wsl-agent-privacy/install.py --target claude
-python3 -I ~/.claude/skills/wsl-agent-privacy/scripts/audit.py host
-~~~
-
-安装 Skill 后，在 Claude 中输入 `/wsl-agent-privacy`。启用网络隔离是单独一步，需要使用者自己的 Mihomo 专用监听、已加载的生成配置和原生 CLI，步骤含验收和撤销。[WSL 安装](wsl-agent-privacy/references/setup.md) · [Mihomo 局部合并样例](network/mihomo.example.yaml)
-
-| 需要完成的工作 | 可用材料 |
+| 用途 | 入口 |
 | --- | --- |
-| 网络、DNS、VPS 维护、连接超时 | [分流与 DNS](wsl-agent-privacy/references/network.md) · [离线 Mihomo 实验](checks/check_mihomo_ingress.py) |
-| Windows 专用快捷方式、时区和受控工具 | [Windows 操作](wsl-agent-privacy/references/windows.md) · [浏览器验收](checks/browser_regression.cjs) |
-| 会话、工具文本、GitHub 权限和跨工具读取 | [会话与权限](wsl-agent-privacy/references/sessions.md) · [文件授权参考](reference/private_home.py) |
-| 日常入口、退出、升级、临时观察 | [运行与故障](wsl-agent-privacy/references/operations.md) · [问题索引](wsl-agent-privacy/references/topics.md) |
-| 应用的 WebSocket 配音连接 | [代理适配器](integrations/wsl_tts_proxy.py) · [离线测试](integrations/test_tts_proxy_adapter.py) |
+| 固定路由、DNS、IPv6 与断线 | [网络配置与排障](claude-bwrap/references/network.md) · [复验](checks/README.md) |
+| Windows 浏览器、USB 和可选工具 | [Windows 能力](claude-bwrap/references/windows.md) |
+| 项目挂载、会话和升级 | [会话与权限](claude-bwrap/references/sessions.md) · [运行与更新](claude-bwrap/references/operations.md) |
+| 查原版、版本演进及验证范围 | [隔离版开发日志](CHANGELOG.md) · [历史措施清单](PROTECTION.md) |
 
-可以从本地源码生成确定性的 Skill ZIP。归档仅收录安装器显式列出的文件。
-
-~~~bash
-python3 -I make_package.py wsl-agent-privacy wsl-agent-privacy.zip
-~~~
+只需安装包时，可在仓库根目录执行 `python3 -I make_package.py claude-bwrap /tmp/claude-bwrap.zip`。安装包只包含本分支清单中的隔离版文件。

@@ -28,7 +28,7 @@ TOOLS = ("claude", "codex")
 HOME_DIR = P.home()
 CONFIG_DIR = HOME_DIR / ".config/wsl-agent-privacy"
 STATE_DIR = HOME_DIR / ".local/state/wsl-agent-privacy"
-BIN_DIR = HOME_DIR / ".local/share/wsl-agent-privacy/bin"
+BIN_DIR = HOME_DIR / ".local/share/claude-bwrap/bin"
 CONFIG = CONFIG_DIR / "config.json"
 INSIDE = P("/opt/wsl-agent-privacy")
 PYTHON = "/usr/bin/python3"
@@ -70,7 +70,7 @@ def create_config() -> None:
     with os.fdopen(os.open(CONFIG, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "w") as f:
         json.dump(sample, f, ensure_ascii=False, indent=2)
         f.write("\n")
-    print(f"Edit the two fixed listeners and controller in {CONFIG}")
+    print(f"Configure the Claude listener, fixed node and controller in {CONFIG}")
 
 
 def load_config() -> dict:
@@ -87,23 +87,16 @@ def load_config() -> dict:
 def shell_entries() -> None:
     """Activate by prepending this directory in the user's shell; leave native links intact."""
     private_dir(BIN_DIR)
-    entries = {}
-    for tool in TOOLS:
-        path = BIN_DIR / tool
-        command = shlex.join([PYTHON, "-I", str(HERE / "guard.py"), "run", tool])
-        content = '#!/bin/sh\nexec ' + command + ' "$@"\n'
-        entries[path] = content
-        if os.path.lexists(path):
-            if path.is_symlink() or not path.is_file() or path.read_text() != content:
-                raise RuntimeError(f"existing entry differs: {path}")
+    path = BIN_DIR / "claude-bwrap"
+    cmd = shlex.join([PYTHON, "-I", str(HERE / "guard.py"), "run", "claude"])
+    content = '#!/bin/sh\nexec ' + cmd + ' "$@"\n'
     directory = os.open(BIN_DIR, os.O_NOFOLLOW | os.O_DIRECTORY)
     try:
         fcntl.flock(directory, fcntl.LOCK_EX)
-        for path, content in entries.items():
-            if os.path.lexists(path):
-                if path.is_symlink() or not path.is_file() or path.read_text() != content:
-                    raise RuntimeError("an existing shell entry changed; leaving it in place")
-                continue
+        if os.path.lexists(path):
+            if path.is_symlink() or not path.is_file() or path.read_text() != content:
+                raise RuntimeError(f"existing entry differs: {path}")
+        else:
             with tempfile.NamedTemporaryFile(mode="w", dir=BIN_DIR) as tmp:
                 tmp.write(content)
                 tmp.flush()
@@ -179,7 +172,7 @@ def prepare_namespace(cfg: dict, tool: str, args: list[str], runtime: P, relay: 
     mount(cmd, tool_home, HOME_DIR, write=True)
     mount(cmd, HERE, INSIDE)
     skill_path = ".claude/skills" if tool == "claude" else ".agents/skills"
-    mount(cmd, HERE.parent, HOME_DIR / skill_path / "wsl-agent-privacy")
+    mount(cmd, HERE.parent, HOME_DIR / skill_path / "claude-bwrap")
     mount(cmd, relay, P("/run/agent-guard/relay.sock"))
     # The real bin directory never becomes writable. Both CLIs see a temporary native entry.
     native_bin = runtime / "bin"
